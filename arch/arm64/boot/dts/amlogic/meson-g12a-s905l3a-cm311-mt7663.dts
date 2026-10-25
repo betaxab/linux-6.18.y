@@ -1,0 +1,350 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2018 Amlogic, Inc. All rights reserved.
+ * Create by flippy
+ *
+ * CM311 with MT7661/MT7663S SDIO module (no physical SD card slot).
+ * Wi-Fi on SD_EMMC_B via W103D-style sdio_dummy; SD_EMMC_A disabled.
+ * Build as meson-g12a-s905l3a-cm311-mt7663.dtb - keep generic cm311.dtb
+ * for other SDIO module variants.
+ */
+
+/dts-v1/;
+
+#include "meson-g12a-u200.dts"
+
+/ {
+	compatible = "cm311,m401a,e900v22c", "zte,w103d", "amlogic,g12a";
+	model = "CM311-1a-YST";
+
+	aliases {
+		serial1 = &uart_A;
+	};
+
+	vddgpu: regulator-vddgpu {
+		compatible = "regulator-fixed";
+		regulator-name = "mali";
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <800000>;
+		vin-supply = <&main_12v>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+
+	wifi32k: wifi32k {
+		compatible = "pwm-clock";
+		#clock-cells = <0>;
+		clock-frequency = <32768>;
+		pwms = <&pwm_ef 0 30518 0>; /* PWM_E at 32.768KHz */
+	};
+
+	sdio_pwrseq: sdio-pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&gpio GPIOX_6 GPIO_ACTIVE_LOW>;
+		clocks = <&wifi32k>;
+		clock-names = "ext_clock";
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		power_led {
+			led_name = "power_led";
+			gpios = <&gpio_ao GPIOAO_11 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
+
+		green_led {
+			led_name = "green_led";
+			gpios = <&gpio_ao GPIOAO_10 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+			linux,default-trigger = "heartbeat";
+		};
+	/*
+	 *	remote_led {
+	 *		led_name = "remote_led";
+	 *		gpios = <&gpio_ao GPIOAO_10 GPIO_ACTIVE_LOW>;
+	 *		default-state = "off";
+	 *		linux,default-trigger = "rc-feedback";
+	 *	};
+	 */
+	};
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x0 0x0 0x80000000>;
+	};
+};
+
+&uart_A {
+	status = "okay";
+	pinctrl-0 = <&uart_a_pins>, <&uart_a_cts_rts_pins>;
+	uart-has-rtscts;
+	pinctrl-names = "default";
+};
+
+&mali {
+	mali-supply=<&vddgpu>;
+};
+
+/*
+ * The vendor G12A tree routes SD_EMMC_B to the GPIOX SDIO pads via the
+ * virtual sdio_dummy mux. Match the verified W103D four-state pinctrl.
+ */
+&periphs_pinctrl {
+	sdio_b_init_pins: sdio-b-init {
+		mux-sd-data {
+			groups = "sdcard_d0_c", "sdcard_d1_c", "sdcard_d2_c",
+				 "sdcard_d3_c", "sdcard_cmd_c";
+			function = "sdcard";
+			input-enable;
+			bias-pull-up;
+			drive-strength-microamp = <4000>;
+		};
+
+		mux-sd-clock {
+			groups = "sdcard_clk_c";
+			function = "sdcard";
+			bias-pull-up;
+			output-high;
+			drive-strength-microamp = <4000>;
+		};
+
+		mux-data {
+			groups = "GPIOX_0", "GPIOX_1", "GPIOX_2",
+				 "GPIOX_3", "GPIOX_5";
+			function = "gpio_periphs";
+			input-enable;
+			bias-pull-up;
+			drive-strength-microamp = <4000>;
+		};
+
+		mux-clock {
+			groups = "GPIOX_4";
+			function = "gpio_periphs";
+			bias-pull-up;
+			output-high;
+			drive-strength-microamp = <4000>;
+		};
+
+		mux-route {
+			groups = "sdio_dummy";
+			function = "sdio";
+			bias-pull-up;
+			output-high;
+		};
+	};
+
+	sdio_b_init_clk_gate_pins: sdio-b-init-clk-gate {
+		mux-sd-data {
+			groups = "sdcard_d0_c", "sdcard_d1_c", "sdcard_d2_c",
+				 "sdcard_d3_c", "sdcard_cmd_c";
+			function = "sdcard";
+			input-enable;
+			bias-pull-up;
+			drive-strength-microamp = <4000>;
+		};
+
+		mux-sd-clock {
+			groups = "sdcard_clk_c";
+			function = "sdcard";
+			bias-pull-up;
+			output-high;
+			drive-strength-microamp = <4000>;
+		};
+
+		mux-command {
+			groups = "GPIOX_5";
+			function = "gpio_periphs";
+			input-enable;
+			bias-pull-up;
+			drive-strength-microamp = <4000>;
+		};
+
+		mux-clock {
+			groups = "GPIOX_4";
+			function = "gpio_periphs";
+			bias-pull-up;
+			output-high;
+			drive-strength-microamp = <4000>;
+		};
+
+		mux-route {
+			groups = "sdio_dummy";
+			function = "sdio";
+			bias-pull-up;
+			output-high;
+		};
+	};
+
+	sdio_b_pins: sdio-b {
+		mux-sd-clear-data {
+			groups = "GPIOC_0", "GPIOC_1", "GPIOC_2",
+				 "GPIOC_3", "GPIOC_5";
+			function = "gpio_periphs";
+			output-high;
+		};
+
+		mux-sd-clear-clock {
+			groups = "GPIOC_4";
+			function = "gpio_periphs";
+			output-low;
+		};
+
+		mux-data {
+			groups = "GPIOX_0", "GPIOX_1", "GPIOX_2",
+				 "GPIOX_3", "GPIOX_5";
+			function = "gpio_periphs";
+			input-enable;
+			bias-pull-up;
+			drive-strength-microamp = <4000>;
+		};
+
+		mux-clock {
+			groups = "GPIOX_4";
+			function = "gpio_periphs";
+			bias-pull-up;
+			output-high;
+			drive-strength-microamp = <4000>;
+		};
+
+		mux-route {
+			groups = "sdio_dummy";
+			function = "sdio";
+			bias-pull-up;
+			output-high;
+		};
+	};
+
+	sdio_b_clk_gate_pins: sdio-b-clk-gate {
+		mux-sd-clear-data {
+			groups = "GPIOC_0", "GPIOC_1", "GPIOC_2",
+				 "GPIOC_3", "GPIOC_5";
+			function = "gpio_periphs";
+			output-high;
+		};
+
+		mux-sd-clear-clock {
+			groups = "GPIOC_4";
+			function = "gpio_periphs";
+			output-low;
+		};
+
+		mux-command {
+			groups = "GPIOX_5";
+			function = "gpio_periphs";
+			input-enable;
+			bias-pull-up;
+			drive-strength-microamp = <4000>;
+		};
+
+		mux-clock {
+			groups = "GPIOX_4";
+			function = "gpio_periphs";
+			bias-pull-up;
+			output-high;
+			drive-strength-microamp = <4000>;
+		};
+
+		mux-route {
+			groups = "sdio_dummy";
+			function = "sdio";
+			bias-pull-up;
+			output-high;
+		};
+	};
+};
+
+/* SDIO-A is SRAM-limited; leave disabled. No Unisoc wifi@ child. */
+&sd_emmc_a {
+	status = "disabled";
+};
+
+/* MT7661/MT7663S Wi-Fi on SD_EMMC_B (W103D sdio_dummy route). No SD slot. */
+&sd_emmc_b {
+	pinctrl-0 = <&sdio_b_init_pins>;
+	pinctrl-1 = <&sdio_b_init_clk_gate_pins>;
+	pinctrl-2 = <&sdio_b_pins>;
+	pinctrl-3 = <&sdio_b_clk_gate_pins>;
+	pinctrl-names = "default", "clk-gate", "sdio-transfer",
+			"sdio-transfer-clk-gate";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	bus-width = <4>;
+	cap-sd-highspeed;
+	cap-sdio-irq;
+	sd-uhs-sdr50;
+	sd-uhs-sdr104;
+	max-frequency = <200000000>;
+	/* Vendor Android holds GPIOX_6 low ~321 ms; 300 ms matches W103D. */
+	post-power-on-delay-ms = <300>;
+	non-removable;
+	disable-wp;
+	keep-power-in-suspend;
+	zte,sdio-fixed-1-8v;
+	mmc-pwrseq = <&sdio_pwrseq>;
+	vmmc-supply = <&vddao_3v3>;
+	vqmmc-supply = <&vddao_1v8>;
+	/delete-property/ cd-gpios;
+	status = "okay";
+};
+
+/* eMMC */
+&sd_emmc_c {
+	status = "okay";
+	bus-width = <8>;
+	cap-mmc-highspeed;
+	mmc-ddr-1_8v;
+	mmc-hs200-1_8v;
+	max-frequency = <200000000>;
+};
+
+/* CPU Overclock */
+&cpu_opp_table {
+	opp-100000000 {
+		status = "disabled";
+	};
+
+	opp-250000000 {
+		status = "disabled";
+	};
+
+	opp-500000000 {
+		status = "disabled";
+	};
+
+	opp-667000000 {
+		status = "disabled";
+	};
+
+	opp-1908000000 {
+		opp-hz = /bits/ 64 <1908000000>;
+		opp-microvolt = <1001000>;
+	};
+
+	/* 2016mhz :  not test */
+	//opp-2016000000 {
+	//		opp-hz = /bits/ 64 <2016000000>;
+	//		opp-microvolt = <1021000>;
+	//};
+};
+
+&internal_ephy  {
+	max-speed = <100>;
+};
+
+&ethmac {
+	/delete-property/ resets;
+	/delete-property/ reset-names;
+	phy-handle = <&internal_ephy>;
+	phy-mode = "rmii";
+	status = "okay";
+};
+
+&pwm_ef {
+	pinctrl-0 = <&pwm_e_pins>;
+	pinctrl-names = "default";
+	clocks = <&xtal>;
+	clock-names = "clkin0";
+	status = "okay";
+};
